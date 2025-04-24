@@ -1,19 +1,30 @@
+
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, db
 import json
 from collections import defaultdict, OrderedDict
 
-# Initialize Firebase
+# Initialize Firebase with st.secrets
 if not firebase_admin._apps:
-    cred = credentials.Certificate("six-90963-firebase-adminsdk-fbsvc-a693c73228.json")
+    cred = credentials.Certificate({
+        "type": st.secrets["firebase"]["type"],
+        "project_id": st.secrets["firebase"]["project_id"],
+        "private_key_id": st.secrets["firebase"]["private_key_id"],
+        "private_key": st.secrets["firebase"]["private_key"].replace('\\n', '\n'),
+        "client_email": st.secrets["firebase"]["client_email"],
+        "client_id": st.secrets["firebase"]["client_id"],
+        "auth_uri": st.secrets["firebase"]["auth_uri"],
+        "token_uri": st.secrets["firebase"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"]
+    })
     firebase_admin.initialize_app(cred, {
         'databaseURL': 'https://six-90963-default-rtdb.firebaseio.com/'
     })
 
 ref = db.reference("menu_items")
 
-# Fetch dishes from Firebase
 def fetch_dishes():
     data = ref.get() or {}
     dishes = []
@@ -24,38 +35,29 @@ def fetch_dishes():
             dishes.append(item)
     return dishes
 
-# Save dish to Firebase
 def save_dish(category, dish):
     ref.child(category).push(dish)
 
-# Delete dish
 def delete_dish(category, dish_id):
     ref.child(category).child(dish_id).delete()
 
-# Update dish
 def update_dish(category, dish_id, updated):
     ref.child(category).child(dish_id).update(updated)
 
-# Load dishes
 dishes = fetch_dishes()
 dish_names = [dish["name"] for dish in dishes]
 
-# Tabs for features
 tab1, tab2 = st.tabs(["🔍 Allergy Scanner", "🛠️ Admin Panel"])
 
-# -------------------- Allergy Scanner --------------------
 with tab1:
     st.markdown("<h2 style='text-align:center; color:white; margin-top: 0;'>🍽️ Allergy Scanner</h2>", unsafe_allow_html=True)
-    st.markdown(
-        """
+    st.markdown("""
         <div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 10px; 
              text-align: center; font-size: 20px; font-weight: bold; color: #333; 
              border: 1px solid #eee; margin-bottom: 15px;'>
             💡 KNOWLEDGE IS MONEY
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
     category_order = OrderedDict([
         ("To Snack", "🧂 To Snack"),
@@ -97,10 +99,7 @@ with tab1:
             if any(a.lower() in r.lower() for r in removable)
         ]
         diet_ok = all(d in diet for d in selected_diet)
-
-        includes_ok = all(
-            ing.lower() in [i.lower() for i in ingredients] for ing in include_ingredients
-        )
+        includes_ok = all(ing.lower() in [i.lower() for i in ingredients] for ing in include_ingredients)
 
         if not allergens_block and diet_ok and includes_ok:
             if removable_ok:
@@ -135,7 +134,6 @@ with tab1:
     else:
         st.info("Please select allergens, dietary preferences, or ingredients to filter menu options.")
 
-# -------------------- Admin Panel --------------------
 with tab2:
     st.title("🛠️ Admin Panel")
     admin_tab1, admin_tab2, admin_tab3 = st.tabs(["➕ Add Dish", "✏️ Edit Dish", "🗑️ Delete Dish"])
